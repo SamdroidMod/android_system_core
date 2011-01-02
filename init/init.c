@@ -58,6 +58,9 @@ static int property_triggers_enabled = 0;
 static int   bootchart_count;
 #endif
 
+static int factorytest = 0;
+static char kl_path[32];
+
 static char console[32];
 static char serialno[32];
 static char bootmode[32];
@@ -397,6 +400,19 @@ static void import_kernel_nv(char *name, int in_qemu)
     *value++ = 0;
     if (*name == 0) return;
 
+    if(in_qemu==77)
+    {
+       if(!strcmp(name,"bootmode")&& !strcmp(value,"1"))
+           factorytest=1;
+       else if(!strcmp(name,"bootmode")&& !strcmp(value,"2"))
+           factorytest=2;
+       else if(!strcmp(name,"bootmode")&& !strcmp(value,"3"))
+           factorytest=3;
+       else if(!strcmp(name,"bootmode")&& !strcmp(value,"4"))
+           factorytest=4;
+       return;
+    }
+
     if (!in_qemu)
     {
         /* on a real device, white-list the kernel options */
@@ -596,6 +612,9 @@ static int set_init_properties_action(int nargs, char **args)
     property_set("ro.hardware", hardware);
     snprintf(tmp, PROP_VALUE_MAX, "%d", revision);
     property_set("ro.revision", tmp);
+
+    property_set("ro.keylayout.path", kl_path);
+    property_set("sec.debug.booterror", "0");
     return 0;
 }
 
@@ -681,6 +700,36 @@ int main(int argc, char **argv)
     mount("proc", "/proc", "proc", 0, NULL);
     mount("sysfs", "/sys", "sysfs", 0, NULL);
 
+    /* For Samsung Spica i5700 */
+    mknod("/dev/dpramerr", S_IFCHR | 0666, (252 << 8) | 0);
+    mknod("/dev/dpram0", S_IFCHR | 0666, (252 << 8) | 1);
+    mknod("/dev/dpram1", S_IFCHR | 0666, (252 << 8) | 2);
+    mknod("/dev/bml0", S_IFBLK | 0644, (137 << 8) | 0);
+    mknod("/dev/bml1", S_IFBLK | 0644, (137 << 8) | 1);
+    mknod("/dev/bml2", S_IFBLK | 0644, (137 << 8) | 2);
+    mknod("/dev/bml3", S_IFBLK | 0644, (137 << 8) | 3);
+    mknod("/dev/bml4", S_IFBLK | 0644, (137 << 8) | 4);
+    mknod("/dev/bml5", S_IFBLK | 0644, (137 << 8) | 5);
+    mknod("/dev/bml6", S_IFBLK | 0644, (137 << 8) | 6);
+    mknod("/dev/bml7", S_IFBLK | 0644, (137 << 8) | 7);
+    mknod("/dev/bml8", S_IFBLK | 0644, (137 << 8) | 8);
+    mknod("/dev/bml9", S_IFBLK | 0644, (137 << 8) | 9);
+    mknod("/dev/bml10", S_IFBLK | 0644, (137 << 8) | 10);
+    mknod("/dev/stl0", S_IFBLK | 0644, (138 << 8) | 0);
+    mknod("/dev/stl1", S_IFBLK | 0644, (138 << 8) | 1);
+    mknod("/dev/stl2", S_IFBLK | 0644, (138 << 8) | 2);
+    mknod("/dev/stl3", S_IFBLK | 0644, (138 << 8) | 3);
+    mknod("/dev/stl4", S_IFBLK | 0644, (138 << 8) | 4);
+    mknod("/dev/stl5", S_IFBLK | 0644, (138 << 8) | 5);
+    mknod("/dev/stl6", S_IFBLK | 0644, (138 << 8) | 6);
+    mknod("/dev/stl7", S_IFBLK | 0644, (138 << 8) | 7);
+    mknod("/dev/stl8", S_IFBLK | 0644, (138 << 8) | 8);
+    mknod("/dev/stl9", S_IFBLK | 0644, (138 << 8) | 9);
+    mknod("/dev/stl10", S_IFBLK | 0644, (138 << 8) | 10);
+    mknod("/dev/multipdp", S_IFCHR | 0666, (10 << 8) | 132);
+    mknod("/dev/ttygs0", S_IFCHR | 0666, (127 << 8) | 0);
+    mknod("/dev/ttySMD0", S_IFCHR | 0660, (251 << 8) | 4);
+
         /* We must have some place other than / to create the
          * device nodes for kmsg and null, otherwise we won't
          * be able to remount / read-only later on.
@@ -689,14 +738,24 @@ int main(int argc, char **argv)
          */
     open_devnull_stdio();
     log_init();
-    
+
     INFO("reading config file\n");
-    init_parse_config_file("/init.rc");
+    import_kernel_cmdline(77);
+    if(factorytest==1)
+        init_parse_config_file("/factorytest.rc");
+    else if(factorytest==2)
+        init_parse_config_file("/recovery.rc");
+    else if(factorytest==3)
+        init_parse_config_file("/fota.rc");
+    else if(factorytest==4)
+        init_parse_config_file("/recovery_hardkey.rc");
+    else
+        init_parse_config_file("/init.rc");
 
     /* pull the kernel commandline and ramdisk properties file in */
     import_kernel_cmdline(0);
 
-    get_hardware_name(hardware, &revision);
+    get_hardware_name(hardware, &revision, kl_path, sizeof(kl_path));
     snprintf(tmp, sizeof(tmp), "/init.%s.rc", hardware);
     init_parse_config_file(tmp);
 

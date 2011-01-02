@@ -413,11 +413,12 @@ void open_devnull_stdio(void)
     exit(1);
 }
 
-void get_hardware_name(char *hardware, unsigned int *revision)
+void get_hardware_name(char *hardware, unsigned int *revision, char* kl_path, int n_kl_path)
 {
     char data[1024];
     int fd, n;
     char *x, *hw, *rev;
+    char rev_str[5];
 
     /* Hardware string was provided on kernel command line */
     if (hardware[0])
@@ -452,6 +453,15 @@ void get_hardware_name(char *hardware, unsigned int *revision)
         x = strstr(rev, ": ");
         if (x) {
             *revision = strtoul(x + 2, 0, 16);
+            x += 2;
+            n  = 0;
+            while (*x && !isspace(*x)) {
+        	rev_str[n++] = *x;
+        	x++;
+        	if (n == 4) break;
+            }
+            rev_str[n] = 0;
+            snprintf(kl_path, n_kl_path, "/tmp/s3c-keypad-rev%s.kl", rev_str);
         }
     }
 }

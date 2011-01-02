@@ -42,7 +42,7 @@ int ueventd_main(int argc, char **argv)
 
     INFO("starting ueventd\n");
 
-    get_hardware_name(hardware, &revision);
+    get_hardware_name(hardware, &revision, 0, 0);
 
     ueventd_parse_config_file("/ueventd.rc");
 

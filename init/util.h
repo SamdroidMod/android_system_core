@@ -37,5 +37,5 @@ void make_link(const char *oldpath, const char *newpath);
 void remove_link(const char *oldpath, const char *newpath);
 int wait_for_file(const char *filename, int timeout);
 void open_devnull_stdio(void);
-void get_hardware_name(char *hardware, unsigned int *revision);
+void get_hardware_name(char *hardware, unsigned int *revision, char* kl_path, int n_kl_path);
 #endif

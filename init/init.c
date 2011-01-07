@@ -58,7 +58,7 @@ static int property_triggers_enabled = 0;
 static int   bootchart_count;
 #endif
 
-static int factorytest = 0;
+static int sp_bootmode = 0;
 static char kl_path[32];
 
 static char console[32];
@@ -400,19 +400,6 @@ static void import_kernel_nv(char *name, int in_qemu)
     *value++ = 0;
     if (*name == 0) return;
 
-    if(in_qemu==77)
-    {
-       if(!strcmp(name,"bootmode")&& !strcmp(value,"1"))
-           factorytest=1;
-       else if(!strcmp(name,"bootmode")&& !strcmp(value,"2"))
-           factorytest=2;
-       else if(!strcmp(name,"bootmode")&& !strcmp(value,"3"))
-           factorytest=3;
-       else if(!strcmp(name,"bootmode")&& !strcmp(value,"4"))
-           factorytest=4;
-       return;
-    }
-
     if (!in_qemu)
     {
         /* on a real device, white-list the kernel options */
@@ -444,10 +431,8 @@ static void import_kernel_nv(char *name, int in_qemu)
     }
 }
 
-static void import_kernel_cmdline(int in_qemu)
+static char* get_cmdline(char* cmdline)
 {
-    char cmdline[1024];
-    char *ptr;
     int fd;
 
     fd = open("/proc/cmdline", O_RDONLY);
@@ -463,8 +448,15 @@ static void import_kernel_cmdline(int in_qemu)
     } else {
         cmdline[0] = 0;
     }
+    return cmdline;
+}
 
-    ptr = cmdline;
+static void import_kernel_cmdline(int in_qemu)
+{
+    char cmdline[1024];
+    char *ptr;
+
+    ptr = get_cmdline(cmdline);
     while (ptr && *ptr) {
         char *x = strchr(ptr, ' ');
         if (x != 0) *x++ = 0;
@@ -472,8 +464,24 @@ static void import_kernel_cmdline(int in_qemu)
         ptr = x;
     }
 
-        /* don't expose the raw commandline to nonpriv processes */
+    /* don't expose the raw commandline to nonpriv processes */
     chmod("/proc/cmdline", 0440);
+}
+
+static void get_bootmode()
+{
+	char cmdline[1024];
+    char *ptr = get_cmdline(cmdline);
+
+    while (ptr && *ptr) {
+        char *x = strchr(ptr, ' ');
+        if (x != 0) *x++ = 0;
+        if (!strncmp(ptr, "bootmode", 8)) {
+        	sp_bootmode = (int)(*(ptr+9))&0x7;
+            ERROR("get_bootmode - found: %s [%c / %d]\n", ptr, *(ptr+9), sp_bootmode);
+        }
+        ptr = x;
+    }
 }
 
 static struct command *get_first_command(struct action *act)
@@ -615,6 +623,8 @@ static int set_init_properties_action(int nargs, char **args)
 
     property_set("ro.keylayout.path", kl_path);
     property_set("sec.debug.booterror", "0");
+    snprintf(tmp, PROP_VALUE_MAX, "%d", sp_bootmode);
+    property_set("ro.spica_bootmode", tmp);
     return 0;
 }
 
@@ -740,14 +750,15 @@ int main(int argc, char **argv)
     log_init();
 
     INFO("reading config file\n");
-    import_kernel_cmdline(77);
-    if(factorytest==1)
+
+    get_bootmode();
+    if (sp_bootmode == 1)
         init_parse_config_file("/factorytest.rc");
-    else if(factorytest==2)
+    else if (sp_bootmode == 2)
         init_parse_config_file("/recovery.rc");
-    else if(factorytest==3)
+    else if (sp_bootmode == 3)
         init_parse_config_file("/fota.rc");
-    else if(factorytest==4)
+    else if (sp_bootmode == 4)
         init_parse_config_file("/recovery_hardkey.rc");
     else
         init_parse_config_file("/init.rc");
